@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>邏輯賓果（5×5）— 垂直置中＆手機適配</title>
+  <style>
+    :root{
+      --bg:#f7f8fb; --panel:#ffffff; --text:#1f2937; --muted:#6b7280;
+      --ok:#16a34a; --ok-bg:#e8f7ee; --ok-border:#a7e3bf;
+      --bad:#dc2626; --bad-bg:#fde8e8; --bad-border:#f5b5b5;
+      --cell:#ffffff; --cellBorder:#e5e7eb; --ring:#3b82f6;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; background:var(--bg); color:var(--text);
+      font-family: ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"PingFang TC","Microsoft JhengHei",sans-serif;
+      display:flex; align-items:stretch; justify-content:center; padding:14px;
+      -webkit-text-size-adjust:100%;
+    }
+    .wrap{width:min(680px,96vw); margin:auto;}
+    header{display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:10px;}
+    h1{font-size:18px; margin:0; letter-spacing:.3px}
+    .legend{font-size:12px; color:var(--muted)}
+    .legend .chip{display:inline-block; padding:1px 8px; border-radius:999px; margin-left:6px; border:1px solid #d1d5db}
+    .chip.ok{background:var(--ok-bg); color:#14532d; border-color:var(--ok-border)}
+    .chip.bad{background:var(--bad-bg); color:#7f1d1d; border-color:var(--bad-border)}
+
+    .board{
+      width:min(520px,94vw);
+      margin:0 auto;
+      display:grid; grid-template-columns:repeat(5,1fr); gap:8px;
+      touch-action:manipulation;
+    }
+    .cell{
+      position:relative; border-radius:12px; padding:8px;
+      background:var(--cell); border:1px solid var(--cellBorder);
+      aspect-ratio:1/1; overflow:hidden; text-align:center;
+      display:grid; grid-auto-rows:max-content; row-gap:6px;
+      place-content:center; place-items:center;   /* 水平＋垂直置中 */
+      transition: transform .08s ease, border-color .15s ease, box-shadow .15s ease, background .15s ease;
+      outline:none; box-shadow: 0 1px 6px rgba(0,0,0,.04);
+    }
+    .cell:hover{ transform:translateY(-1px); border-color:#d1d5db }
+    .cell:focus-visible{ box-shadow:0 0 0 3px var(--ring) ; }
+
+    .desc{
+      font-size:clamp(10px,1.8vw,14px);
+      line-height:1.35; color:#111827; letter-spacing:.2px;
+      padding:0 6px; max-width:100%;
+      overflow-wrap:anywhere; word-break:break-word; white-space:normal;
+      text-wrap:balance;
+    }
+    .mark{
+      font-size:clamp(22px,4.3vw,28px);
+      line-height:1; width:1.2em; text-align:center; user-select:none;
+    }
+    .cell.ok{ background:var(--ok-bg); border-color:var(--ok-border); box-shadow: 0 1px 8px rgba(22,163,74,.08); }
+    .cell.bad{ background:var(--bad-bg); border-color:var(--bad-border); box-shadow: 0 1px 8px rgba(220,38,38,.08); }
+
+    .toolbar{
+      display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between; margin:12px 0 8px;
+      background:var(--panel); padding:8px 10px; border-radius:10px; border:1px solid #e5e7eb;
+      box-shadow: 0 1px 8px rgba(0,0,0,.04);
+    }
+    .btn{
+      background:#ffffff; color:#111827; border:1px solid #d1d5db;
+      padding:8px 10px; border-radius:9px; font-size:14px; cursor:pointer;
+      transition: background .15s ease, transform .06s ease, border-color .15s ease, box-shadow .15s ease;
+      touch-action:manipulation;
+    }
+    .btn:hover{ background:#f3f4f6; border-color:#cbd5e1 }
+    .btn:active{ transform: translateY(1px) }
+    .status{ color:#374151; font-size:13px }
+    .status strong{ color:#111827 }
+
+    .solved{
+      margin-top:10px; padding:10px 12px; border-radius:10px; border:1px solid var(--ok-border);
+      background:var(--ok-bg); color:#14532d; display:none;
+      box-shadow: 0 1px 8px rgba(22,163,74,.08); font-size:14px; text-align:center;
+    }
+    .solved.show{ display:block; }
+
+    .foot{
+      margin-top:10px; font-size:12px; color:#6b7280;
+      border-top:1px dashed #d1d5db; padding-top:8px; text-align:center;
+    }
+    @media (max-width:480px){
+      .board{ width:min(440px,96vw) }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>邏輯賓果（5×5）</h1>
+      <div class="legend">
+        狀態：
+        <span class="chip ok">符合（綠）</span>
+        <span class="chip bad">未符合（紅）</span>
+      </div>
+    </header>
+
+    <div class="toolbar">
+      <div class="status" id="status">目前勾選數：<strong id="cnt">0</strong>／25</div>
+      <div>
+        <button class="btn" id="btn-reset">重設</button>
+        <button class="btn" id="btn-rand">隨機狀態</button>
+      </div>
+    </div>
+
+    <section class="board" id="board" aria-label="邏輯賓果棋盤">
+      <!-- 第1列 -->
+      <div class="cell" tabindex="0" data-r="0" data-c="0"><div class="desc">此格要勾不勾都可以</div><div class="mark" data-mark>　</div></div> <!-- 1-1 -->
+      <div class="cell" tabindex="0" data-r="0" data-c="1"><div class="desc">整張表打勾的格子數 ≤ 12</div><div class="mark" data-mark>　</div></div>
+      <div class="cell" tabindex="0" data-r="0" data-c="2"><div class="desc">第2列打勾格子數量小於第3列</div><div class="mark" data-mark>　</div></div> <!-- 1-3 改 -->
+      <div class="cell" tabindex="0" data-r="0" data-c="3"><div class="desc">這一格所在列的打勾數量小於所在行</div><div class="mark" data-mark>　</div></div>
+      <div class="cell" tabindex="0" data-r="0" data-c="4"><div class="desc">至少存在一整直行全部打勾</div><div class="mark" data-mark>　</div></div> <!-- 1-5 -->
+
+      <!-- 第2列 -->
+      <div class="cell" tabindex="0" data-r="1" data-c="0"><div class="desc">這個格子周圍 5 格的打勾數量是奇數</div><div class="mark" data-mark>　</div></div> <!-- 2-1 -->
+      <div class="cell" tabindex="0" data-r="1" data-c="1"><div class="desc">整張表打勾的格子數 ≥ 13</div><div class="mark" data-mark>　</div></div>
+      <div class="cell" tabindex="0" data-r="1" data-c="2"><div class="desc">不存在周圍格子均未被打勾的格子</div><div class="mark" data-mark>　</div></div> <!-- 2-3 -->
+      <div class="cell" tabindex="0" data-r="1" data-c="3"><div class="desc">四個角上的格子恰有 2 個打勾</div><div class="mark" data-mark>　</div></div>
+      <div class="cell" tabindex="0" data-r="1" data-c="4"><div class="desc">至少存在一整橫列全部打勾</div><div class="mark" data-mark>　</div></div> <!-- 2-5 -->
+
+      <!-- 第3列 -->
+      <div class="cell" tabindex="0" data-r="2" data-c="0"><div class="desc">中心格被打勾</div><div class="mark" data-mark>　</div></div>
+      <div class="cell" tabindex="0" data-r="2" data-c="1"><div class="desc">左上角的九宮格有 ≥ 5 個格子打勾</div><div class="mark" data-mark>　</div></div> <!-- 3-2 -->
+      <div class="cell" tabindex="0" data-r="2" data-c="2"><div class="desc">不存在上下相鄰且均被打勾的兩個格子</div><div class="mark" data-mark>　</div></div>
+      <div class="cell" tabindex="0" data-r="2" data-c="3"><div class="desc">不存在上下左右皆打勾但自身不勾的格子</div><div class="mark" data-mark>　</div></div> <!-- 3-4 -->
+      <div class="cell" tabindex="0" data-r="2" data-c="4"><div class="desc">至少存在一條對角線全部打勾</div><div class="mark" data-mark>　</div></div>
+
+      <!-- 第4列 -->
+      <div class="cell" tabindex="0" data-r="3" data-c="0"><div class="desc">存在某個格子，其周圍打勾數量 ≥ 7</div><div class="mark" data-mark>　</div></div>
+      <div class="cell" tabindex="0" data-r="3" data-c="1"><div class="desc">這一格所在列的打勾數量小於所在行</div><div class="mark" data-mark>　</div></div>
+      <div class="cell" tabindex="0" data-r="3" data-c="2"><div class="desc">存在 2×2 正方形 4 格全打勾</div><div class="mark" data-mark>　</div></div>
+      <div class="cell" tabindex="0" data-r="3" data-c="3"><div class="desc">這個格子周圍 8 格的打勾數量是偶數</div><div class="mark" data-mark>　</div></div> <!-- 4-4 -->
+      <div class="cell" tabindex="0" data-r="3" data-c="4"><div class="desc">此格永遠應為打勾</div><div class="mark" data-mark>　</div></div>
+
+      <!-- 第5列 -->
+      <div class="cell" tabindex="0" data-r="4" data-c="0"><div class="desc">第5行打勾格子數量 &lt; 3</div><div class="mark" data-mark>　</div></div>
+      <div class="cell" tabindex="0" data-r="4" data-c="1"><div class="desc">第2行打勾格子數量 &gt; 3</div><div class="mark" data-mark>　</div></div>
+      <div class="cell" tabindex="0" data-r="4" data-c="2"><div class="desc">第1行打勾格子數量 &gt; 3</div><div class="mark" data-mark>　</div></div>
+      <div class="cell" tabindex="0" data-r="4" data-c="3"><div class="desc">第3行打勾格子數量在所有行中最小</div><div class="mark" data-mark>　</div></div> <!-- 5-4 改 -->
+      <div class="cell" tabindex="0" data-r="4" data-c="4"><div class="desc">存在一整行或一整列完全沒有被打勾的格子</div><div class="mark" data-mark>　</div></div>
+    </section>
+
+    <div id="solved" class="solved">🎉 恭喜！目前所有格子的「是否打勾」皆與各自描述的真假一致（全部綠色）。</div>
+
+    <div class="foot">
+      點格子切換 空白 → ✅ → ❌（空白/❌皆視為未打勾）。<br>
+      規則：若該格「是否打勾」與該格描述在當前盤面的真假一致 → 綠；否則紅。<br>
+      本題採 <strong>行＝直（column）、列＝橫（row）</strong>；周圍採 8 鄰域並裁切棋盤。
+    </div>
+  </div>
+
+  <script>
+    const BLANK=0, CHECK=1, CROSS=2, N=5, MIN_FONT_PX=8;
+
+    const grid = Array.from({length:N}, ()=>Array.from({length:N}, ()=>BLANK));
+    const boardEl=document.getElementById('board');
+    const cntEl=document.getElementById('cnt');
+    const solvedEl=document.getElementById('solved');
+
+    const inb=(r,c)=>r>=0&&r<N&&c>=0&&c<N;
+    const isChecked=(r,c)=>grid[r][c]===CHECK;
+
+    const totalChecked=()=>{let s=0;for(let r=0;r<N;r++)for(let c=0;c<N;c++)if(isChecked(r,c))s++;return s;};
+    const rowCounts=()=>Array.from({length:N},(_,r)=>{let s=0;for(let c=0;c<N;c++)if(isChecked(r,c))s++;return s;}); // 列=橫
+    const colCounts=()=>Array.from({length:N},(_,c)=>{let s=0;for(let r=0;r<N;r++)if(isChecked(r,c))s++;return s;}); // 行=直
+
+    function neighborCount(r,c){
+      let s=0; for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++){
+        if(dr===0&&dc===0) continue;
+        const rr=r+dr, cc=c+dc;
+        if(inb(rr,cc) && isChecked(rr,cc)) s++;
+      } return s;
+    }
+    const cornersSum=()=> (isChecked(0,0)?1:0)+(isChecked(0,N-1)?1:0)+(isChecked(N-1,0)?1:0)+(isChecked(N-1,N-1)?1:0);
+    const existsFullRow=()=> rowCounts().some(x=>x===N);
+    const existsFullCol=()=> colCounts().some(x=>x===N);
+    const existsFullDiag=()=>{let main=true,anti=true;for(let i=0;i<N;i++){if(!isChecked(i,i))main=false;if(!isChecked(i,N-1-i))anti=false;}return main||anti;};
+    const existsAny5Line=()=> existsFullRow()||existsFullCol()||existsFullDiag();
+    const exists2x2All=()=>{for(let r=0;r<N-1;r++)for(let c=0;c<N-1;c++)if(isChecked(r,c)&&isChecked(r,c+1)&&isChecked(r+1,c)&&isChecked(r+1,c+1))return true;return false;};
+    const existsAroundAtLeastK=(k)=>{for(let r=0;r<N;r++)for(let c=0;c<N;c++)if(neighborCount(r,c)>=k)return true;return false;};
+    const noVerticalAdjacentBothChecked=()=>{for(let r=0;r<N-1;r++)for(let c=0;c<N;c++)if(isChecked(r,c)&&isChecked(r+1,c))return false;return true;};
+    const noOrthoAllCheckedWhileSelfBlank=()=>{for(let r=1;r<N-1;r++)for(let c=1;c<N-1;c++){const u=isChecked(r-1,c),d=isChecked(r+1,c),l=isChecked(r,c-1),ri=isChecked(r,c+1);if(u&&d&&l&&ri&&!isChecked(r,c))return false;}return true;};
+    const noCellWithAllNeighborsBlank=()=>{for(let r=0;r<N;r++)for(let c=0;c<N;c++){let any=false, anyChecked=false;for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){if(dr===0&&dc===0)continue;const rr=r+dr,cc=c+dc; if(!inb(rr,cc))continue; any=true; if(isChecked(rr,cc)) anyChecked=true;} if(any && !anyChecked) return false;} return true;};
+
+    function computeTruth(){
+      const t = Array.from({length:N}, ()=>Array.from({length:N}, ()=>false));
+      const tot = totalChecked(), rows=rowCounts(), cols=colCounts();
+
+      // 第1列
+      t[0][0] = isChecked(0,0);                 // 1-1：兩種都可（令真值=當前是否勾）
+      t[0][1] = (tot <= 12);
+      t[0][2] = (rows[1] < rows[2]);            // 1-3：第2列 < 第3列
+      t[0][3] = (rows[0] < cols[3]);
+      t[0][4] = existsFullCol();                // 1-5：至少存在一整直行全勾
+
+      // 第2列
+      t[1][0] = (neighborCount(1,0) % 2 === 1); // 2-1
+      t[1][1] = (tot >= 13);
+      t[1][2] = noCellWithAllNeighborsBlank();  // 2-3
+      t[1][3] = (cornersSum() === 2);
+      t[1][4] = existsFullRow();                // 2-5
+
+      // 第3列
+      t[2][0] = isChecked(2,2);
+      let ul=0; for(let r=0;r<3;r++) for(let c=0;c<3;c++) if(isChecked(r,c)) ul++;
+      t[2][1] = (ul >= 5);                      // 3-2
+      t[2][2] = noVerticalAdjacentBothChecked();
+      t[2][3] = noOrthoAllCheckedWhileSelfBlank(); // 3-4
+      t[2][4] = existsFullDiag();
+
+      // 第4列
+      t[3][0] = existsAroundAtLeastK(7);
+      t[3][1] = (rows[3] < cols[1]);
+      t[3][2] = exists2x2All();
+      t[3][3] = (neighborCount(3,3) % 2 === 0); // 4-4
+      t[3][4] = true;
+
+      // 第5列
+      t[4][0] = (cols[4] < 3);
+      t[4][1] = (cols[1] > 3);
+      t[4][2] = (cols[0] > 3);
+      t[4][3] = (cols[2] < Math.min(...cols.filter((_,i)=>i!==2))); // 5-4：第3行在所有行中最小（嚴格）
+      t[4][4] = (rows.some(x=>x===0) || cols.some(x=>x===0));
+
+      return t;
+    }
+
+    function render(){
+      const truth=computeTruth(), checked=totalChecked();
+      document.getElementById('cnt').textContent=String(checked);
+      let allSatisfied=true;
+
+      document.querySelectorAll('.cell').forEach(cell=>{
+        const r=+cell.dataset.r, c=+cell.dataset.c;
+        const markEl=cell.querySelector('[data-mark]'); const state=grid[r][c];
+        if(state===CHECK) markEl.textContent='✅';
+        else if(state===CROSS) markEl.textContent='❌';
+        else markEl.textContent='　';
+        const satisfied=(state===CHECK)===truth[r][c];
+        cell.classList.toggle('ok',satisfied);
+        cell.classList.toggle('bad',!satisfied);
+        if(!satisfied) allSatisfied=false;
+      });
+      solvedEl.classList.toggle('show',allSatisfied);
+      requestAnimationFrame(fitAllDescriptions);
+    }
+
+    function advance(r,c){ grid[r][c]=(grid[r][c]+1)%3; render(); }
+    boardEl.addEventListener('click',e=>{const cell=e.target.closest('.cell'); if(!cell)return; advance(+cell.dataset.r,+cell.dataset.c);});
+    boardEl.addEventListener('keydown',e=>{ if(e.key!=='Enter'&&e.key!==' ')return; const cell=e.target.closest('.cell'); if(!cell)return; e.preventDefault(); advance(+cell.dataset.r,+cell.dataset.c); });
+
+    document.getElementById('btn-reset').addEventListener('click',()=>{for(let r=0;r<N;r++)for(let c=0;c<N;c++)grid[r][c]=BLANK; render();});
+    document.getElementById('btn-rand').addEventListener('click',()=>{for(let r=0;r<N;r++)for(let c=0;c<N;c++)grid[r][c]=Math.floor(Math.random()*3); render();});
+
+    /* ===== 自動縮字（避免手機溢出；維持垂直置中） ===== */
+    function fitDescriptionForCell(cell){
+      const desc=cell.querySelector('.desc'); const mark=cell.querySelector('.mark'); if(!desc||!mark)return;
+      const cellStyle=getComputedStyle(cell);
+      const padTop=parseFloat(cellStyle.paddingTop)||0, padBottom=parseFloat(cellStyle.paddingBottom)||0, rowGap=parseFloat(cellStyle.rowGap)||6;
+      const available = cell.clientHeight - padTop - padBottom - mark.offsetHeight - rowGap*1.2;
+      if(available<=0) return;
+      const start=Math.max(parseFloat(getComputedStyle(desc).fontSize)||14,12);
+      let hi=start, lo=MIN_FONT_PX; desc.style.maxHeight=available+'px'; desc.style.fontSize=hi+'px';
+      let guard=0; while(desc.scrollHeight>available && hi>lo && guard++<8){ hi=Math.max(lo,hi-2); desc.style.fontSize=hi+'px'; }
+      for(let i=0;i<18;i++){ if(desc.scrollHeight<=available) break; const mid=(hi+lo)/2; hi=mid; desc.style.fontSize=hi+'px'; }
+      if(desc.scrollHeight>available) desc.style.fontSize=lo+'px';
+    }
+    function fitAllDescriptions(){ document.querySelectorAll('.cell').forEach(fitDescriptionForCell); }
+
+    render();
+    window.addEventListener('resize',()=>requestAnimationFrame(fitAllDescriptions));
+    window.addEventListener('orientationchange',()=>setTimeout(fitAllDescriptions,150));
+  </script>
+</body>
+</html>
